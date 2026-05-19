@@ -16,6 +16,7 @@ function activate( context )
     var viewNames = [];
     var commands = [];
     var buttons = {};
+    var buttonViews = {};
     var spacers = [];
     var open = 'hide';
 
@@ -119,7 +120,7 @@ function activate( context )
     {
         function deselect()
         {
-            viewNames.forEach( function( view )
+            Object.keys( buttons ).forEach( function( view )
             {
                 if( buttons[ view ] )
                 {
@@ -130,10 +131,13 @@ function activate( context )
 
         function highlightView( view )
         {
-            if( buttons[ view ] )
+            Object.keys( buttonViews ).forEach( function( button )
             {
-                buttons[ view ].color = activeColour();
-            }
+                if( buttonViews[ button ] === view && buttons[ button ] )
+                {
+                    buttons[ button ].color = activeColour();
+                }
+            } );
             open = view;
         }
 
@@ -163,18 +167,12 @@ function activate( context )
                 }
                 else
                 {
-                    if( buttons[ view ] )
-                    {
-                        buttons[ view ].color = activeColour();
-                    }
                     showView( view );
+                    return;
                 }
                 if( open === 'hide' )
                 {
-                    if( buttons[ view ] )
-                    {
-                        buttons[ view ].color = activeColour();
-                    }
+                    highlightView( view );
                 }
                 else
                 {
@@ -217,9 +215,97 @@ function activate( context )
             };
         }
 
-        function addSpacer( icon )
+        function getAlignment( alignmentName )
         {
-            var alignment = vscode.StatusBarAlignment[ vscode.workspace.getConfiguration( 'activitusbar' ).get( 'alignment', "Left" ) ];
+            return vscode.StatusBarAlignment[ alignmentName || vscode.workspace.getConfiguration( 'activitusbar' ).get( 'alignment', "Left" ) ];
+        }
+
+        function hasConfiguredValue( setting )
+        {
+            return setting && ( setting.globalValue !== undefined || setting.workspaceValue !== undefined || setting.workspaceFolderValue !== undefined );
+        }
+
+        function getConfiguredViews( settingName )
+        {
+            var config = vscode.workspace.getConfiguration( 'activitusbar' );
+            var inspected = config.inspect( settingName );
+            var definedViews = config.get( settingName );
+            if( config.get( 'combineWorkspaceSettings' ) && inspected && inspected.globalValue )
+            {
+                definedViews = inspected.globalValue.slice();
+                if( inspected.workspaceValue )
+                {
+                    inspected.workspaceValue.map( function( view )
+                    {
+                        definedViews.push( view );
+                    } );
+                }
+                if( inspected.workspaceFolderValue )
+                {
+                    inspected.workspaceFolderValue.map( function( view )
+                    {
+                        definedViews.push( view );
+                    } );
+                }
+            }
+            return definedViews;
+        }
+
+        function getViewGroups()
+        {
+            var config = vscode.workspace.getConfiguration( 'activitusbar' );
+            var leftViews = config.inspect( 'leftViews' );
+            var rightViews = config.inspect( 'rightViews' );
+            var defaultPriority = config.get( 'priority', '99999' );
+            if( hasConfiguredValue( leftViews ) || hasConfiguredValue( rightViews ) )
+            {
+                return [
+                    {
+                        "name": "left",
+                        "alignment": "Left",
+                        "priority": config.get( 'leftPriority', defaultPriority ),
+                        "views": getConfiguredViews( 'leftViews' ) || []
+                    },
+                    {
+                        "name": "right",
+                        "alignment": "Right",
+                        "priority": config.get( 'rightPriority', defaultPriority ),
+                        "views": getConfiguredViews( 'rightViews' ) || []
+                    }
+                ];
+            }
+
+            return [
+                {
+                    "name": "legacy",
+                    "alignment": config.get( 'alignment', "Left" ),
+                    "priority": defaultPriority,
+                    "views": getConfiguredViews( 'views' ) || []
+                }
+            ];
+        }
+
+        function getButtonKey( groupName, viewName )
+        {
+            if( groupName === 'legacy' )
+            {
+                return viewName;
+            }
+            return groupName + ':' + viewName;
+        }
+
+        function getCommandKey( groupName, viewName )
+        {
+            if( groupName === 'legacy' )
+            {
+                return viewName.capitalize() + 'View';
+            }
+            return ( groupName + '_' + viewName ).replace( /[^a-zA-Z0-9]/g, '_' ) + 'View';
+        }
+
+        function addSpacer( icon, alignmentName )
+        {
+            var alignment = getAlignment( alignmentName );
             var button = vscode.window.createStatusBarItem( alignment, priority-- );
             button.text = icon ? '$(' + icon + ')' : ' ';
             button.color = inactiveColour();
@@ -228,9 +314,9 @@ function activate( context )
             return button;
         }
 
-        function addButton( icon, command, viewName, tooltip, label )
+        function addButton( icon, command, viewName, tooltip, label, alignmentName )
         {
-            var alignment = vscode.StatusBarAlignment[ vscode.workspace.getConfiguration( 'activitusbar' ).get( 'alignment', "Left" ) ];
+            var alignment = getAlignment( alignmentName );
             var button = vscode.window.createStatusBarItem( alignment, priority-- );
             button.text = '$(' + icon + ')' + ( label ? ' ' + label : '' );
             button.command = command;
@@ -245,9 +331,9 @@ function activate( context )
             return button;
         }
 
-        function addTaskButton( icon, command, taskName, tooltip, label )
+        function addTaskButton( icon, command, taskName, tooltip, label, alignmentName )
         {
-            var alignment = vscode.StatusBarAlignment[ vscode.workspace.getConfiguration( 'activitusbar' ).get( 'alignment', "Left" ) ];
+            var alignment = getAlignment( alignmentName );
             var button = vscode.window.createStatusBarItem( alignment, priority-- );
             button.text = '$(' + icon + ')' + ( label ? ' ' + label : '' );
             button.command = command;
@@ -257,9 +343,9 @@ function activate( context )
             return button;
         }
 
-        function addCommandButton( icon, command, tooltip, label )
+        function addCommandButton( icon, command, tooltip, label, alignmentName )
         {
-            var alignment = vscode.StatusBarAlignment[ vscode.workspace.getConfiguration( 'activitusbar' ).get( 'alignment', "Left" ) ];
+            var alignment = getAlignment( alignmentName );
             var button = vscode.window.createStatusBarItem( alignment, priority-- );
             button.text = '$(' + icon + ')' + ( label ? ' ' + label : '' );
             button.command = command;
@@ -269,9 +355,9 @@ function activate( context )
             return button;
         }
 
-        function addSettingsButton( icon, tooltip, label )
+        function addSettingsButton( icon, tooltip, label, alignmentName )
         {
-            var alignment = vscode.StatusBarAlignment[ vscode.workspace.getConfiguration( 'activitusbar' ).get( 'alignment', "Left" ) ];
+            var alignment = getAlignment( alignmentName );
             var button = vscode.window.createStatusBarItem( alignment, priority-- );
             button.text = '$(' + icon + ')' + ( label ? ' ' + label : '' );
             button.command = "workbench.action.openSettings";
@@ -294,111 +380,120 @@ function activate( context )
         function createButtons()
         {
             spacers.forEach( button => button.dispose() );
+            spacers = [];
             Object.keys( buttons ).forEach( button => buttons[ button ].dispose() );
             buttons = {};
+            buttonViews = {};
+            viewNames = [];
             commands.forEach( command => command.dispose() );
             commands = [];
 
-            var views = vscode.workspace.getConfiguration( 'activitusbar' ).inspect( 'views' );
-            var definedViews = vscode.workspace.getConfiguration( 'activitusbar' ).get( 'views' );
-            if( vscode.workspace.getConfiguration( 'activitusbar' ).get( 'combineWorkspaceSettings' ) && views.globalValue )
+            getViewGroups().forEach( function( group )
             {
-                definedViews = views.globalValue;
-                if( views.workspaceValue )
+                startingPriority = group.priority;
+                priority = startingPriority;
+
+                if( group.views )
                 {
-                    views.workspaceValue.map( function( view )
+                    group.views.forEach( function( view )
                     {
-                        definedViews.push( view );
-                    } );
-                }
-            }
-
-            startingPriority = vscode.workspace.getConfiguration( 'activitusbar' ).get( 'priority', '99999' );
-
-            priority = startingPriority;
-
-            if( definedViews )
-            {
-                definedViews.forEach( function( view )
-                {
-                    var command;
-                    if( !view.name )
-                    {
-                        spacers.push( addSpacer( getIcon( view ) ) );
-                    }
-                    else if( !buttons.hasOwnProperty( view.name ) )
-                    {
-                        if( view.name.toLowerCase().indexOf( "task." ) === 0 )
+                        var command;
+                        var buttonKey;
+                        if( !view.name )
                         {
-                            var taskName = view.name.substr( 5 );
-                            var dotPosition = taskName.indexOf( '.' );
-                            var workspace;
-                            if( dotPosition > -1 )
-                            {
-                                workspace = taskName.substr( 0, dotPosition );
-                                taskName = taskName.substr( dotPosition + 1 );
-                            }
-
-                            vscode.tasks.fetchTasks().then( function( availableTasks )
-                            {
-                                var found = false;
-                                availableTasks.map( function( task )
-                                {
-                                    if( task.name === taskName && ( workspace === undefined || task.scope.name === workspace ) )
-                                    {
-                                        found = true;
-                                        command = 'activitusbar.startTask' + taskName;
-                                        buttons[ view.name ] = buttons[ view.name ] = addTaskButton( getIcon( view ), command, taskName, view.tooltip, view.label );
-                                        commands.push( vscode.commands.registerCommand( command, function()
-                                        {
-                                            vscode.tasks.executeTask( task );
-                                        } ) );
-                                    }
-                                } );
-                                if( found === false )
-                                {
-                                    vscode.window.showErrorMessage( "Failed to create button for task '" + taskName + "'" );
-                                }
-                            } );
-                        }
-                        else if( view.name.toLowerCase().indexOf( "command." ) === 0 )
-                        {
-                            var commandName = view.name.substr( 8 );
-                            buttons[ view.name ] = addCommandButton( getIcon( view ), commandName, view.tooltip, view.label );
-                        }
-                        else if( view.name.toLowerCase() === "settings" )
-                        {
-                            buttons[ view.name ] = addSettingsButton( getIcon( view ), view.tooltip, view.label );
+                            spacers.push( addSpacer( getIcon( view ), group.alignment ) );
                         }
                         else
                         {
-                            var commandKey = view.name.capitalize() + 'View';
-                            command = 'activitusbar.toggle' + commandKey;
-                            viewNames.push( view.name );
-                            buttons[ view.name ] = addButton( getIcon( view ), command, view.name, view.tooltip, view.label );
-                            commands.push( vscode.commands.registerCommand( command, makeToggleView( view.name ) ) );
-
-                            if( view.name !== 'search' )
+                            buttonKey = getButtonKey( group.name, view.name );
+                            if( !buttons.hasOwnProperty( buttonKey ) )
                             {
-                                commands.push( vscode.commands.registerCommand( 'activitusbar.show' + commandKey, makeShowView( view.name ) ) );
+                                if( view.name.toLowerCase().indexOf( "task." ) === 0 )
+                                {
+                                    var taskName = view.name.substr( 5 );
+                                    var dotPosition = taskName.indexOf( '.' );
+                                    var workspace;
+                                    if( dotPosition > -1 )
+                                    {
+                                        workspace = taskName.substr( 0, dotPosition );
+                                        taskName = taskName.substr( dotPosition + 1 );
+                                    }
+
+                                    vscode.tasks.fetchTasks().then( function( availableTasks )
+                                    {
+                                        var found = false;
+                                        availableTasks.map( function( task )
+                                        {
+                                            if( task.name === taskName && ( workspace === undefined || task.scope.name === workspace ) )
+                                            {
+                                                found = true;
+                                                command = group.name === 'legacy' ? 'activitusbar.startTask' + taskName : 'activitusbar.startTask.' + getCommandKey( group.name, taskName );
+                                                buttons[ buttonKey ] = addTaskButton( getIcon( view ), command, taskName, view.tooltip, view.label, group.alignment );
+                                                commands.push( vscode.commands.registerCommand( command, function()
+                                                {
+                                                    vscode.tasks.executeTask( task );
+                                                } ) );
+                                            }
+                                        } );
+                                        if( found === false )
+                                        {
+                                            vscode.window.showErrorMessage( "Failed to create button for task '" + taskName + "'" );
+                                        }
+                                    } );
+                                }
+                                else if( view.name.toLowerCase().indexOf( "command." ) === 0 )
+                                {
+                                    var commandName = view.name.substr( 8 );
+                                    buttons[ buttonKey ] = addCommandButton( getIcon( view ), commandName, view.tooltip, view.label, group.alignment );
+                                }
+                                else if( view.name.toLowerCase() === "settings" )
+                                {
+                                    buttons[ buttonKey ] = addSettingsButton( getIcon( view ), view.tooltip, view.label, group.alignment );
+                                }
+                                else
+                                {
+                                    var commandKey = getCommandKey( group.name, view.name );
+                                    command = 'activitusbar.toggle' + commandKey;
+                                    viewNames.push( view.name );
+                                    buttonViews[ buttonKey ] = view.name;
+                                    buttons[ buttonKey ] = addButton( getIcon( view ), command, view.name, view.tooltip, view.label, group.alignment );
+                                    commands.push( vscode.commands.registerCommand( command, makeToggleView( view.name ) ) );
+
+                                    if( view.name !== 'search' )
+                                    {
+                                        commands.push( vscode.commands.registerCommand( 'activitusbar.show' + commandKey, makeShowView( view.name ) ) );
+                                    }
+                                }
                             }
                         }
-                    }
-                } );
-            }
+                    } );
+                }
+            } );
         }
 
         function setScmCount( count )
         {
-            if( buttons.scm !== undefined )
+            var scmButtons = Object.keys( buttonViews ).filter( function( button )
             {
-                var views = vscode.workspace.getConfiguration( 'activitusbar' ).get( 'views' );
+                return buttonViews[ button ] === 'scm' && buttons[ button ] !== undefined;
+            } );
+
+            if( scmButtons.length > 0 )
+            {
+                var views = [];
+                getViewGroups().map( function( group )
+                {
+                    views = views.concat( group.views || [] );
+                } );
                 views.map( function( view )
                 {
                     if( view.name === 'scm' )
                     {
                         var icon = getIcon( view );
-                        buttons.scm.text = '$(' + icon + ')' + ( count > 0 ? count : '' ) + ( view.label ? ' ' + view.label : '' );
+                        scmButtons.map( function( button )
+                        {
+                            buttons[ button ].text = '$(' + icon + ')' + ( count > 0 ? count : '' ) + ( view.label ? ' ' + view.label : '' );
+                        } );
                     }
                 } );
             }
@@ -408,7 +503,12 @@ function activate( context )
         {
             if( vscode.window.state.focused === true )
             {
-                if( buttons.scm !== undefined )
+                var scmButtons = Object.keys( buttonViews ).filter( function( button )
+                {
+                    return buttonViews[ button ] === 'scm' && buttons[ button ] !== undefined;
+                } );
+
+                if( scmButtons.length > 0 )
                 {
                     var total = 0;
                     if( vscode.workspace.workspaceFolders )

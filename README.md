@@ -2,6 +2,49 @@
 
 One of my work colleagues was complaining about the activity bar wasting too much space, so this simply puts icons on the status bar that open the views of the activity bar. You can then hide the activity bar from the View menu...
 
+## Fork Changes
+
+This fork adds a few status-bar layout features that are useful when the native activity bar is hidden:
+
+- `activitusbar.leftViews` and `activitusbar.rightViews` for two independently configured button groups.
+- `activitusbar.leftPriority` and `activitusbar.rightPriority` for positioning each group independently.
+- `command.*` view entries continue to work for arbitrary commands and custom workbench containers.
+- `activitus-gemini`, `activitus-claude`, and `activitus-codex` product icons are bundled for use in `codicon`.
+
+This fork is not published to an extension marketplace. Install it manually from a local VSIX.
+
+## Manual Installation
+
+Clone the fork and build the VSIX:
+
+```sh
+git clone git@github.com:ChiragKalra/activitusbar.git
+cd activitusbar
+npm ci
+npm run package
+```
+
+Install into Google Antigravity:
+
+```sh
+antigravity --install-extension activitusbar-0.0.49.vsix --force
+```
+
+Install into VS Code:
+
+```sh
+code --install-extension activitusbar-0.0.49.vsix --force
+```
+
+Install into an Antigravity SSH remote extension host:
+
+```sh
+scp activitusbar-0.0.49.vsix remote-host:/tmp/activitusbar-0.0.49.vsix
+ssh remote-host '~/.antigravity-server/bin/*/bin/antigravity-server --extensions-dir ~/.antigravity-server/extensions --install-extension /tmp/activitusbar-0.0.49.vsix --force'
+```
+
+After installing, run `Developer: Reload Window` so the extension host reloads the patched version.
+
 ## Configuration
 
 The buttons are configurable, using `activitusbar.views`. This is a array containing objects with names, their associated icons and optional tooltips or labels. By default, all standard views are enabled, i.e. Explorer, Search, SCM, Debug and Extensions. (*See Default Configuration below*). When overriding the default settings, default icons will be used if not specified.
@@ -11,6 +54,72 @@ The panel views Terminal, Problems, Output and Debug Console can now also be mov
 The colour of the active and inactive buttons can also be specified using `activitusbar.activeColour` and `activitusbar.inactiveColour`. The configuration accepts either theme colour names (e.g. `editor.foreground`, see <https://code.visualstudio.com/api/references/theme-color> for the full list), standard HTML/CSS colour names or hex colour codes (e.g. `#ff0000`). If the colours are not specified in the configuration, the current status bar foreground (`statusBar.foreground`) and the inactive activity bar icon (`activityBar.inactiveForeground`) are used.
 
 If required, the position of the icons can be adjusted by changing the value of `activitusbar.priority` and `activitusbar.alignment`. The defaults are `99999` and `Left` which should place them at the far left or the status bar. Depending on what other extensions are installed, you may need to experiment to find a value which suits. For example, to move everything to the far right, try `Right` and `-99999`.
+
+To configure two independent groups, use `activitusbar.leftViews` and `activitusbar.rightViews`. When either split setting is configured, `activitusbar.views` is ignored for layout. The view object format is the same as `activitusbar.views`. Use `activitusbar.leftPriority` and `activitusbar.rightPriority` to position each group independently.
+
+Example Antigravity configuration with left-side workbench controls and right-side agent controls:
+
+```json
+"workbench.activityBar.location": "hidden",
+"workbench.auxiliaryActivityBar.location": "default",
+"activitusbar.toggleSidebar": false,
+"activitusbar.rightPriority": -99999,
+"activitusbar.leftViews": [
+    {
+        "name": "explorer",
+        "codicon": "explorer-view-icon"
+    },
+    {
+        "name": "scm",
+        "codicon": "source-control-view-icon"
+    },
+    {
+        "name": "search",
+        "codicon": "search-view-icon"
+    },
+    {
+        "name": "debug",
+        "codicon": "run-view-icon"
+    },
+    {
+        "name": "command.workbench.view.remote",
+        "codicon": "remote-explorer",
+        "tooltip": "Remote SSH"
+    }
+],
+"activitusbar.rightViews": [
+    {
+        "name": "command.antigravity.agentViewContainerId",
+        "codicon": "activitus-gemini",
+        "tooltip": "Gemini"
+    },
+    {
+        "name": "command.workbench.view.extension.claude-sidebar-secondary",
+        "codicon": "activitus-claude",
+        "tooltip": "Claude"
+    },
+    {
+        "name": "command.workbench.view.extension.codexSecondaryViewContainer",
+        "codicon": "activitus-codex",
+        "tooltip": "Codex"
+    },
+    {
+        "name": "extensions",
+        "codicon": "extensions-view-icon"
+    },
+    {
+        "name": "terminal",
+        "codicon": "terminal-view-icon"
+    },
+    {
+        "name": "command.workbench.view.extension.claude-sessions-sidebar",
+        "codicon": "activitus-claude",
+        "tooltip": "Claude sessions"
+    }
+]
+```
+
+This build also contributes `activitus-gemini`, `activitus-claude`, and `activitus-codex` product icons for use in `codicon`.
 
 Now that custom view containers are available, the configuration has been extended to support this. To add a button for a custom view, you'll need to find the name of the view name. This is normally shown in the *Feature Contributions* tab of the extension page in the extensions view.
 

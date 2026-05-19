@@ -2,7 +2,7 @@
     "name": "activitusbar",
     "displayName": "Activitus Bar",
     "description": "Save some real estate by recreating the activity bar buttons on the status bar",
-    "version": "0.0.47",
+    "version": "0.0.49",
     "icon": "icon.png",
     "publisher": "Gruntfuggly",
     "license": "MIT",
@@ -33,9 +33,13 @@
             "supported": "limited",
             "restrictedConfigurations": [
                 "activitusbar.views",
+                "activitusbar.leftViews",
+                "activitusbar.rightViews",
                 "activitusbar.inactiveColour",
                 "activitusbar.activeColour",
                 "activitusbar.priority",
+                "activitusbar.leftPriority",
+                "activitusbar.rightPriority",
                 "activitusbar.alignment",
                 "activitusbar.toggleSidebar",
                 "activitusbar.searchViewInPanel",
@@ -45,6 +49,29 @@
         }
     },
     "contributes": {
+        "icons": {
+            "activitus-gemini": {
+                "description": "Gemini logo",
+                "default": {
+                    "fontPath": "./media/generated/activitus-logos.woff",
+                    "fontCharacter": "\\F101"
+                }
+            },
+            "activitus-codex": {
+                "description": "Codex logo",
+                "default": {
+                    "fontPath": "./media/generated/activitus-logos.woff",
+                    "fontCharacter": "\\F102"
+                }
+            },
+            "activitus-claude": {
+                "description": "Claude logo",
+                "default": {
+                    "fontPath": "./media/generated/activitus-logos.woff",
+                    "fontCharacter": "\\F103"
+                }
+            }
+        },
         "configuration": {
             "type": "object",
             "title": "Activitus Bar",
@@ -75,6 +102,16 @@
                         }
                     ]
                 },
+                "activitusbar.leftViews": {
+                    "type": "array",
+                    "description": "Views to include on the left side of the status bar. When leftViews or rightViews is configured, the legacy activitusbar.views layout is ignored.",
+                    "default": []
+                },
+                "activitusbar.rightViews": {
+                    "type": "array",
+                    "description": "Views to include on the right side of the status bar. When leftViews or rightViews is configured, the legacy activitusbar.views layout is ignored.",
+                    "default": []
+                },
                 "activitusbar.inactiveColour": {
                     "type": "string",
                     "description": "Override colour of inactive icons"
@@ -87,6 +124,14 @@
                     "type": "integer",
                     "description": "Controls the position within the status bar (higher values will move the icons further to the left",
                     "default": 99999
+                },
+                "activitusbar.leftPriority": {
+                    "type": "integer",
+                    "description": "Controls the position of leftViews within the left side of the status bar. Falls back to activitusbar.priority when unset."
+                },
+                "activitusbar.rightPriority": {
+                    "type": "integer",
+                    "description": "Controls the position of rightViews within the right side of the status bar. Lower values move the group closer to the right edge."
                 },
                 "activitusbar.alignment": {
                     "type": "string",
@@ -120,10 +165,16 @@
             }
         }
     },
-    "scripts": {},
+    "scripts": {
+        "build:icons": "fantasticon media/logo-icons-src -o media/generated -n activitus-logos -t woff -g json --normalize true --font-height 1000",
+        "package": "npm run build:icons && vsce package --no-dependencies",
+        "install:antigravity": "antigravity --install-extension activitusbar-0.0.49.vsix --force"
+    },
     "devDependencies": {
+        "@vscode/vsce": "^3.6.2",
+        "@types/vscode": "^1.74.0",
+        "fantasticon": "^4.1.0",
         "typescript": "^2.0.3",
-        "vscode": "^1.74.0",
         "eslint": "^6.6.0"
     },
     "__metadata": {
